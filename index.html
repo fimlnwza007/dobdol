@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead by Daylight 2D Multiplayer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        horror: {
+                            950: '#090508',
+                            900: '#140a10',
+                            800: '#26121f',
+                            700: '#3d1b31',
+                            red: '#8b0000',
+                            crimson: '#dc143c',
+                            amber: '#f59e0b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        .text-glow { text-shadow: 0 0 10px rgba(220, 20, 60, 0.7); }
+        .box-glow { box-shadow: 0 0 20px rgba(139, 0, 0, 0.4); }
+    </style>
+</head>
+<body class="bg-horror-950 text-zinc-100 min-h-screen flex flex-col items-center justify-center overflow-x-hidden select-none">
+
+    <!-- Custom Modal / Message Box -->
+    <div id="modal-container" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="bg-horror-900 border border-horror-red/50 p-6 rounded-xl max-w-md w-full mx-4 box-glow text-center">
+            <h3 id="modal-title" class="text-xl font-bold text-horror-crimson mb-2">แจ้งเตือน</h3>
+            <p id="modal-message" class="text-zinc-300 mb-6 text-sm"></p>
+            <button onclick="closeModal()" class="bg-horror-red hover:bg-red-700 text-white font-bold px-6 py-2 rounded-lg transition shadow-lg">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="app" class="w-full max-w-6xl mx-auto p-4 flex flex-col items-center justify-center min-h-screen">
+
+        <!-- LOBBY VIEW -->
+        <div id="lobby-view" class="w-full max-w-xl bg-horror-900/90 border border-horror-800 rounded-2xl p-8 box-glow flex flex-col gap-6">
+            <div class="text-center">
+                <h1 class="text-4xl font-extrabold text-horror-crimson text-glow tracking-wider uppercase mb-1">Dead by Daylight 2D</h1>
+                <p class="text-xs text-zinc-400">เกมสยองขวัญมัลติพลายเอร์แบบเรียลไทม์</p>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 mb-1">ชื่อผู้เล่น (Nickname)</label>
+                    <input type="text" id="nickname-input" placeholder="กรอกชื่อของคุณ..." maxlength="15" class="w-full bg-horror-950 border border-horror-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-horror-crimson transition">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                    <button onclick="createRoom()" class="bg-horror-red hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow-lg flex items-center justify-center gap-2">
+                        <span>สร้างห้องใหม่</span>
+                    </button>
+                    <div class="flex gap-2">
+                        <input type="text" id="room-code-input" placeholder="รหัสห้อง" maxlength="6" class="w-full bg-horror-950 border border-horror-700 rounded-xl px-3 py-3 text-white text-center uppercase tracking-widest focus:outline-none focus:border-horror-crimson transition text-sm">
+                        <button onclick="joinRoom()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold px-4 py-3 rounded-xl transition border border-zinc-700">เข้าร่วม</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-horror-800 pt-4 text-xs text-zinc-500 text-center">
+                <p>💡 <b>ผู้รอดชีวิต (Survivors):</b> ซ่อมเครื่องปั่นไฟ 3 เครื่องและเปิดประตูหนี</p>
+                <p>🔪 <b>ฆาตกร (Killer):</b> ไล่ล่าและจัดการผู้รอดชีวิตทั้งหมดก่อนหลบหนี</p>
+            </div>
+        </div>
+
+        <!-- WAITING ROOM VIEW -->
+        <div id="room-view" class="w-full max-w-2xl bg-horror-900/90 border border-horror-800 rounded-2xl p-8 box-glow hidden flex flex-col gap-6">
+            <div class="flex justify-between items-center border-b border-horror-800 pb-4">
+                <div>
+                    <span class="text-xs text-zinc-400">รหัสห้อง:</span>
+                    <h2 id="display-room-code" class="text-2xl font-mono font-bold text-horror-amber tracking-widest">------</h2>
+                </div>
+                <button onclick="leaveRoom()" class="text-xs bg-zinc-800 hover:bg-red-950 text-zinc-300 hover:text-red-400 border border-zinc-700 px-3 py-1.5 rounded-lg transition">ออกจากห้อง</button>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-semibold text-zinc-400 mb-3">ผู้เล่นในห้อง (<span id="player-count">0</span>/4)</h3>
+                <div id="players-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- Dynamic Player Cards -->
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 items-center justify-between border-t border-horror-800 pt-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-zinc-400">เลือกบทบาทของคุณ:</span>
+                    <button id="role-survivor-btn" onclick="selectRole('survivor')" class="px-4 py-2 rounded-xl text-sm font-bold bg-amber-600 text-white transition shadow">ผู้รอดชีวิต</button>
+                    <button id="role-killer-btn" onclick="selectRole('killer')" class="px-4 py-2 rounded-xl text-sm font-bold bg-zinc-800 text-zinc-400 transition shadow border border-zinc-700">ฆาตกร</button>
+                </div>
+                <button id="start-game-btn" onclick="startGame()" class="w-full sm:w-auto bg-horror-red hover:bg-red-700 text-white font-bold px-8 py-3 rounded-xl transition shadow-lg hidden">เริ่มเกม</button>
+                <div id="waiting-host-msg" class="text-xs text-zinc-400 italic">รอหัวหน้าห้องเริ่มเกม...</div>
+            </div>
+        </div>
+
+        <!-- GAMEPLAY VIEW -->
+        <div id="game-view" class="w-full flex flex-col items-center hidden relative">
+            <!-- HUD Top Bar -->
+            <div class="w-full max-w-4xl bg-horror-900/90 border border-horror-800 rounded-xl p-3 mb-3 flex justify-between items-center box-glow text-sm">
+                <div class="flex items-center gap-4">
+                    <div>
+                        <span class="text-xs text-zinc-400 block">บทบาทของคุณ</span>
+                        <span id="hud-role" class="font-bold text-amber-400 uppercase">ผู้รอดชีวิต</span>
+                    </div>
+                    <div class="h-8 w-px bg-horror-800"></div>
+                    <div>
+                        <span class="text-xs text-zinc-400 block">สถานะสุขภาพ</span>
+                        <span id="hud-health" class="font-bold text-emerald-400">ปกติ (Healthy)</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <div class="text-center">
+                        <span class="text-xs text-zinc-400 block">เครื่องปั่นไฟที่ซ่อมเสร็จ</span>
+                        <span id="hud-generators" class="font-bold text-amber-400 text-base">0 / 3</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-xs text-zinc-400 block">ประตูทางออก</span>
+                        <span id="hud-gates" class="font-bold text-zinc-400 text-base">ยังไม่เปิด</span>
+                    </div>
+                </div>
+
+                <button onclick="leaveGame()" class="text-xs bg-zinc-800 hover:bg-red-950 text-zinc-300 hover:text-red-400 border border-zinc-700 px-3 py-1.5 rounded-lg transition">ยอมแพ้ / ออก</button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="relative bg-horror-950 border-2 border-horror-800 rounded-xl overflow-hidden box-glow shadow-2xl">
+                <canvas id="game-canvas" width="900" height="600" class="block cursor-crosshair"></canvas>
+                
+                <!-- Action Prompt Overlay -->
+                <div id="action-prompt" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/80 border border-horror-700 px-6 py-3 rounded-xl text-center hidden animate-pulse shadow-2xl">
+                    <p id="action-text" class="text-sm font-bold text-amber-400">กด [E] เพื่อซ่อมเครื่องปั่นไฟ</p>
+                    <div class="w-48 bg-zinc-800 h-2 rounded-full mt-2 overflow-hidden border border-zinc-700">
+                        <div id="action-progress-bar" class="bg-amber-500 h-full w-0 transition-all duration-75"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3 text-xs text-zinc-500 text-center flex gap-4">
+                <span>🎮 <b>เคลื่อนที่:</b> W, A, S, D หรือ ลูกศร</span>
+                <span>⚙️ <b>โต้ตอบ:</b> ปุ่ม E (ซ่อมเครื่อง / เปิดประตู)</span>
+                <span>⚔️ <b>โจมตี (ฆาตกร):</b> คลิกซ้าย / Spacebar</span>
+            </div>
+        </div>
+
+        <!-- GAME OVER / RESULT MODAL -->
+        <div id="result-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center hidden">
+            <div class="bg-horror-900 border border-horror-red p-8 rounded-2xl max-w-md w-full mx-4 box-glow text-center flex flex-col gap-4">
+                <h2 id="result-title" class="text-3xl font-extrabold text-horror-crimson text-glow">จบเกม</h2>
+                <p id="result-description" class="text-zinc-300 text-sm">ผู้รอดชีวิตหลบหนีสำเร็จ!</p>
+                <button onclick="returnToLobby()" class="bg-horror-red hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow-lg mt-4">กลับสู่หน้าหลัก</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Firebase and App Variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dbd-2d-game-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDummyKeyForLocalTestingOrPreview",
+            authDomain: "dummy.firebaseapp.com",
+            projectId: "dummy-project"
+        };
+
+        let app, auth, db;
+        let currentUser = null;
+        let currentRoomId = null;
+        let unsubscribeRoom = null;
+
+        // Game State Variables
+        let gameState = {
+            status: 'waiting', // waiting, playing, ended
+            hostId: '',
+            players: {},
+            generators: [
+                { id: 'gen1', x: 200, y: 150, progress: 0, repaired: false },
+                { id: 'gen2', x: 700, y: 150, progress: 0, repaired: false },
+                { id: 'gen3', x: 450, y: 500, progress: 0, repaired: false }
+            ],
+            exitGates: [
+                { id: 'gate1', x: 50, y: 300, progress: 0, open: false },
+                { id: 'gate2', x: 850, y: 300, progress: 0, open: false }
+            ],
+            generatorsRepaired: 0,
+            exitOpened: false
+        };
+
+        let localPlayer = {
+            id: '',
+            name: 'Survivor',
+            role: 'survivor', // survivor or killer
+            x: 450,
+            y: 300,
+            speed: 3.5,
+            state: 'healthy', // healthy, injured, downed, hooked, escaped
+            isMoving: false,
+            angle: 0
+        };
+
+        let keysPressed = {};
+        let canvas, ctx;
+        let animationFrameId = null;
+        let interactionTarget = null;
+        let isInteracting = false;
+        let interactionProgress = 0;
+
+        // Initialize Firebase
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch(() => signInAnonymously(auth));
+            } else {
+                signInAnonymously(auth);
+            }
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    localPlayer.id = user.uid;
+                }
+            });
+        } catch (e) {
+            console.warn("Firebase initialization note:", e);
+        }
+
+        window.showModal = function(title, msg) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = msg;
+            document.getElementById('modal-container').classList.remove('hidden');
+        }
+
+        window.closeModal = function() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        // Lobby Navigation
+        window.createRoom = async function() {
+            const nickname = document.getElementById('nickname-input').value.trim();
+            if (!nickname) {
+                showModal('กรุณากรอกชื่อ', 'โปรดระบุชื่อผู้เล่นของคุณก่อนสร้างห้อง');
+                return;
+            }
+            if (!currentUser) {
+                showModal('กำลังเชื่อมต่อ', 'โปรดรอสักครู่ ระบบกำลังเชื่อมต่อเซิร์ฟเวอร์');
+                return;
+            }
+
+            localPlayer.name = nickname;
+            localPlayer.role = 'survivor';
+            localPlayer.x = 200;
+            localPlayer.y = 300;
+            localPlayer.state = 'healthy';
+
+            const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            currentRoomId = roomCode;
+
+            gameState = {
+                status: 'waiting',
+                hostId: currentUser.uid,
+                players: {
+                    [currentUser.uid]: { ...localPlayer }
+                },
+                generators: [
+                    { id: 'gen1', x: 250, y: 180, progress: 0, repaired: false },
+                    { id: 'gen2', x: 650, y: 180, progress: 0, repaired: false },
+                    { id: 'gen3', x: 450, y: 450, progress: 0, repaired: false }
+                ],
+                exitGates: [
+                    { id: 'gate1', x: 80, y: 300, progress: 0, open: false },
+                    { id: 'gate2', x: 820, y: 300, progress: 0, open: false }
+                ],
+                generatorsRepaired: 0,
+                exitOpened: false
+            };
+
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+                await setDoc(roomRef, gameState);
+                enterWaitingRoom();
+            } catch (err) {
+                console.error("Create room error:", err);
+                showModal('ข้อผิดพลาด', 'ไม่สามารถสร้างห้องได้ในขณะนี้');
+            }
+        }
+
+        window.joinRoom = async function() {
+            const nickname = document.getElementById('nickname-input').value.trim();
+            const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+
+            if (!nickname) {
+                showModal('กรุณากรอกชื่อ', 'โปรดระบุชื่อผู้เล่นของคุณก่อนเข้าร่วมห้อง');
+                return;
+            }
+            if (!roomCode || roomCode.length < 6) {
+                showModal('รหัสห้องไม่ถูกต้อง', 'โปรดกรอกรหัสห้องให้ครบ 6 หลัก');
+                return;
+            }
+            if (!currentUser) {
+                showModal('กำลังเชื่อมต่อ', 'โปรดรอสักครู่ ระบบกำลังเชื่อมต่อเซิร์ฟเวอร์');
+                return;
+            }
+
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', roomCode);
+                const roomSnap = await getDoc(roomRef);
+
+                if (!roomSnap.exists()) {
+                    showModal('ไม่พบห้อง', 'ไม่พบห้องที่ระบุ กรุณาตรวจสอบรหัสห้องอีกครั้ง');
+                    return;
+                }
+
+                const data = roomSnap.data();
+                if (data.status !== 'waiting') {
+                    showModal('เกมเริ่มไปแล้ว', 'ห้องนี้กำลังเล่นอยู่ ไม่สามารถเข้าร่วมได้');
+                    return;
+                }
+
+                currentRoomId = roomCode;
+                localPlayer.name = nickname;
+                localPlayer.role = 'survivor';
+                localPlayer.x = 450 + Math.random() * 50;
+                localPlayer.y = 300 + Math.random() * 50;
+                localPlayer.state = 'healthy';
+
+                data.players[currentUser.uid] = { ...localPlayer };
+                await updateDoc(roomRef, { players: data.players });
+                enterWaitingRoom();
+            } catch (err) {
+                console.error("Join room error:", err);
+                showModal('ข้อผิดพลาด', 'ไม่สามารถเข้าร่วมห้องได้');
+            }
+        }
+
+        function enterWaitingRoom() {
+            document.getElementById('lobby-view').classList.add('hidden');
+            document.getElementById('room-view').classList.remove('hidden');
+            document.getElementById('display-room-code').innerText = currentRoomId;
+
+            subscribeToRoom();
+        }
+
+        window.leaveRoom = async function() {
+            if (!currentRoomId || !currentUser) return;
+            if (unsubscribeRoom) unsubscribeRoom();
+
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+                const roomSnap = await getDoc(roomRef);
+                if (roomSnap.exists()) {
+                    const data = roomSnap.data();
+                    delete data.players[currentUser.uid];
+                    if (Object.keys(data.players).length === 0 || data.hostId === currentUser.uid) {
+                        await deleteDoc(roomRef);
+                    } else {
+                        await updateDoc(roomRef, { players: data.players });
+                    }
+                }
+            } catch (e) {
+                console.error("Leave room error:", e);
+            }
+
+            currentRoomId = null;
+            document.getElementById('room-view').classList.add('hidden');
+            document.getElementById('lobby-view').classList.remove('hidden');
+        }
+
+        window.selectRole = async function(role) {
+            if (!currentRoomId || !currentUser) return;
+
+            // Check if another player is already killer
+            if (role === 'killer') {
+                let killerExists = false;
+                for (let id in gameState.players) {
+                    if (id !== currentUser.uid && gameState.players[id].role === 'killer') {
+                        killerExists = true;
+                        break;
+                    }
+                }
+                if (killerExists) {
+                    showModal('มีฆาตกรแล้ว', 'มีผู้เล่นเลือกบทบาทฆาตกรไปแล้ว กรุณาเลือกบทบาทผู้รอดชีวิต');
+                    return;
+                }
+                localPlayer.speed = 4.2; // Killer is faster
+            } else {
+                localPlayer.speed = 3.5;
+            }
+
+            localPlayer.role = role;
+
+            // Update UI buttons
+            if (role === 'survivor') {
+                document.getElementById('role-survivor-btn').className = 'px-4 py-2 rounded-xl text-sm font-bold bg-amber-600 text-white transition shadow';
+                document.getElementById('role-killer-btn').className = 'px-4 py-2 rounded-xl text-sm font-bold bg-zinc-800 text-zinc-400 transition shadow border border-zinc-700';
+            } else {
+                document.getElementById('role-killer-btn').className = 'px-4 py-2 rounded-xl text-sm font-bold bg-horror-red text-white transition shadow';
+                document.getElementById('role-survivor-btn').className = 'px-4 py-2 rounded-xl text-sm font-bold bg-zinc-800 text-zinc-400 transition shadow border border-zinc-700';
+            }
+
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+            gameState.players[currentUser.uid].role = role;
+            gameState.players[currentUser.uid].speed = localPlayer.speed;
+            await updateDoc(roomRef, { players: gameState.players });
+        }
+
+        function subscribeToRoom() {
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+            unsubscribeRoom = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) return;
+                gameState = docSnap.data();
+
+                // Check if game started
+                if (gameState.status === 'playing' && document.getElementById('room-view').classList.contains('hidden') === false) {
+                    startClientGame();
+                }
+
+                updateWaitingRoomUI();
+            }, (error) => {
+                console.error("Room snapshot error:", error);
+            });
+        }
+
+        function updateWaitingRoomUI() {
+            const playersListEl = document.getElementById('players-list');
+            playersListEl.innerHTML = '';
+            let count = 0;
+
+            const isHost = gameState.hostId === currentUser.uid;
+            let hasKiller = false;
+
+            for (let id in gameState.players) {
+                count++;
+                const p = gameState.players[id];
+                if (p.role === 'killer') hasKiller = true;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border flex items-center justify-between ${p.role === 'killer' ? 'bg-horror-950 border-horror-red/50 text-red-400' : 'bg-zinc-950 border-zinc-800 text-amber-400'}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full ${p.role === 'killer' ? 'bg-red-600 animate-pulse' : 'bg-amber-500'}"></span>
+                        <span class="font-bold text-sm text-white">${p.name} ${id === currentUser.uid ? '(คุณ)' : ''}</span>
+                    </div>
+                    <span class="text-xs uppercase font-semibold px-2 py-1 rounded bg-zinc-900 border border-zinc-800 ${p.role === 'killer' ? 'text-red-400' : 'text-amber-400'}">
+                        ${p.role === 'killer' ? '🔪 ฆาตกร' : '🏃‍♂️ ผู้รอดชีวิต'}
+                    </span>
+                `;
+                playersListEl.appendChild(card);
+            }
+
+            document.getElementById('player-count').innerText = count;
+
+            const startBtn = document.getElementById('start-game-btn');
+            const waitMsg = document.getElementById('waiting-host-msg');
+
+            if (isHost) {
+                startBtn.classList.remove('hidden');
+                waitMsg.classList.add('hidden');
+            } else {
+                startBtn.classList.add('hidden');
+                waitMsg.classList.remove('hidden');
+            }
+        }
+
+        window.startGame = async function() {
+            if (!currentRoomId || gameState.hostId !== currentUser.uid) return;
+
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+            await updateDoc(roomRef, { status: 'playing' });
+        }
+
+        function startClientGame() {
+            document.getElementById('room-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+
+            const hudRole = document.getElementById('hud-role');
+            hudRole.innerText = localPlayer.role === 'killer' ? 'ฆาตกร (Killer)' : 'ผู้รอดชีวิต (Survivor)';
+            hudRole.className = `font-bold uppercase ${localPlayer.role === 'killer' ? 'text-red-500' : 'text-amber-400'}`;
+
+            initCanvas();
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            window.addEventListener('mousedown', handleMouseDown);
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
+        }
+
+        window.leaveGame = function() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+            window.removeEventListener('mousedown', handleMouseDown);
+            document.getElementById('game-view').classList.add('hidden');
+            leaveRoom();
+        }
+
+        // Canvas Game Engine
+        function initCanvas() {
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas.getContext('2d');
+        }
+
+        function handleKeyDown(e) {
+            keysPressed[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'e') {
+                attemptInteraction();
+            }
+        }
+
+        function handleKeyUp(e) {
+            keysPressed[e.key.toLowerCase()] = false;
+            if (e.key.toLowerCase() === 'e') {
+                stopInteraction();
+            }
+        }
+
+        function handleMouseDown(e) {
+            if (localPlayer.role === 'killer' && gameState.status === 'playing') {
+                performKillerAttack();
+            }
+        }
+
+        function attemptInteraction() {
+            if (localPlayer.role !== 'survivor') return;
+            if (!interactionTarget) return;
+
+            isInteracting = true;
+            document.getElementById('action-prompt').classList.remove('hidden');
+        }
+
+        function stopInteraction() {
+            isInteracting = false;
+            interactionProgress = 0;
+            document.getElementById('action-prompt').classList.add('hidden');
+            document.getElementById('action-progress-bar').style.width = '0%';
+        }
+
+        function performKillerAttack() {
+            // Check distance to survivors
+            for (let id in gameState.players) {
+                if (id === currentUser.uid) continue;
+                const p = gameState.players[id];
+                if (p.role === 'survivor' && p.state !== 'downed' && p.state !== 'hooked') {
+                    const dist = Math.hypot(p.x - localPlayer.x, p.y - localPlayer.y);
+                    if (dist < 50) {
+                        // Hit survivor!
+                        if (p.state === 'healthy') {
+                            p.state = 'injured';
+                        } else if (p.state === 'injured') {
+                            p.state = 'downed';
+                        }
+                        syncPlayerState();
+                        break;
+                    }
+                }
+            }
+        }
+
+        async function syncPlayerState() {
+            if (!currentRoomId || !currentUser) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+            await updateDoc(roomRef, { players: gameState.players, generators: gameState.generators, exitGates: gameState.exitGates, generatorsRepaired: gameState.generatorsRepaired, exitOpened: gameState.exitOpened });
+        }
+
+        let lastSyncTime = 0;
+        function updateGameLogic(timestamp) {
+            if (gameState.status !== 'playing') return;
+
+            // Player Movement
+            let dx = 0;
+            let dy = 0;
+            if (keysPressed['w'] || keysPressed['arrowup']) dy -= 1;
+            if (keysPressed['s'] || keysPressed['arrowdown']) dy += 1;
+            if (keysPressed['a'] || keysPressed['arrowleft']) dx -= 1;
+            if (keysPressed['d'] || keysPressed['arrowright']) dx += 1;
+
+            if (dx !== 0 || dy !== 0) {
+                const len = Math.hypot(dx, dy);
+                localPlayer.x += (dx / len) * localPlayer.speed;
+                localPlayer.y += (dy / len) * localPlayer.speed;
+
+                // Boundary clamping
+                localPlayer.x = Math.max(30, Math.min(canvas.width - 30, localPlayer.x));
+                localPlayer.y = Math.max(30, Math.min(canvas.height - 30, localPlayer.y));
+                localPlayer.isMoving = true;
+            } else {
+                localPlayer.isMoving = false;
+            }
+
+            // Check interactions for survivor
+            if (localPlayer.role === 'survivor' && localPlayer.state !== 'downed' && localPlayer.state !== 'hooked') {
+                let nearest = null;
+                let minDist = 60;
+
+                // Check generators
+                gameState.generators.forEach(gen => {
+                    if (!gen.repaired) {
+                        const dist = Math.hypot(gen.x - localPlayer.x, gen.y - localPlayer.y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearest = { type: 'generator', obj: gen };
+                        }
+                    }
+                });
+
+                // Check exit gates if generators completed
+                if (gameState.exitOpened) {
+                    gameState.exitGates.forEach(gate => {
+                        const dist = Math.hypot(gate.x - localPlayer.x, gate.y - localPlayer.y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearest = { type: 'gate', obj: gate };
+                        }
+                    });
+                }
+
+                interactionTarget = nearest;
+
+                const promptEl = document.getElementById('action-prompt');
+                const textEl = document.getElementById('action-text');
+                const barEl = document.getElementById('action-progress-bar');
+
+                if (interactionTarget) {
+                    if (interactionTarget.type === 'generator') {
+                        textEl.innerText = `กด [E] ค้างเพื่อซ่อมเครื่องปั่นไฟ (${Math.floor(interactionTarget.obj.progress)}%)`;
+                    } else if (interactionTarget.type === 'gate') {
+                        textEl.innerText = `กด [E] ค้างเพื่อเปิดประตูหนี (${Math.floor(interactionTarget.obj.progress)}%)`;
+                    }
+                    promptEl.classList.remove('hidden');
+
+                    if (isInteracting) {
+                        interactionProgress += 0.5;
+                        barEl.style.width = `${interactionProgress}%`;
+
+                        if (interactionProgress >= 100) {
+                            if (interactionTarget.type === 'generator') {
+                                interactionTarget.obj.repaired = true;
+                                interactionTarget.obj.progress = 100;
+                                gameState.generatorsRepaired++;
+                                if (gameState.generatorsRepaired >= gameState.generators.length) {
+                                    gameState.exitOpened = true;
+                                }
+                            } else if (interactionTarget.type === 'gate') {
+                                interactionTarget.obj.open = true;
+                                interactionTarget.obj.progress = 100;
+                                triggerEscape();
+                            }
+                            stopInteraction();
+                            syncPlayerState();
+                        }
+                    }
+                } else {
+                    if (!isInteracting) {
+                        promptEl.classList.add('hidden');
+                    }
+                }
+            }
+
+            // Sync local player position with Firestore periodically
+            if (currentUser && currentRoomId) {
+                if (gameState.players[currentUser.uid]) {
+                    gameState.players[currentUser.uid].x = localPlayer.x;
+                    gameState.players[currentUser.uid].y = localPlayer.y;
+                    gameState.players[currentUser.uid].state = localPlayer.state;
+
+                    if (timestamp - lastSyncTime > 80) {
+                        lastSyncTime = timestamp;
+                        syncPlayerStateSilent();
+                    }
+                }
+            }
+        }
+
+        async function syncPlayerStateSilent() {
+            if (!currentRoomId || !currentUser) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'dbd_rooms', currentRoomId);
+            await updateDoc(roomRef, {
+                [`players.${currentUser.uid}.x`]: localPlayer.x,
+                [`players.${currentUser.uid}.y`]: localPlayer.y,
+                [`players.${currentUser.uid}.state`]: localPlayer.state
+            }).catch(() => {});
+        }
+
+        function triggerEscape() {
+            localPlayer.state = 'escaped';
+            showResultModal('รอดชีวิตสำเร็จ! 🎉', 'คุณและเพื่อนร่วมทีมสามารถซ่อมเครื่องปั่นไฟและหนีออกจากสถานที่นี้ได้สำเร็จ');
+        }
+
+        function showResultModal(title, desc) {
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-description').innerText = desc;
+            document.getElementById('result-modal').classList.remove('hidden');
+            gameState.status = 'ended';
+        }
+
+        window.returnToLobby = function() {
+            document.getElementById('result-modal').classList.add('hidden');
+            leaveGame();
+        }
+
+        function renderGame() {
+            // Clear canvas
+            ctx.fillStyle = '#0f0a0e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Dark Atmospheric Grid / Floor tiles
+            ctx.strokeStyle = '#1a1017';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw Generators
+            gameState.generators.forEach(gen => {
+                ctx.fillStyle = gen.repaired ? '#10b981' : '#f59e0b';
+                ctx.fillRect(gen.x - 20, gen.y - 20, 40, 40);
+                ctx.strokeStyle = gen.repaired ? '#059669' : '#d97706';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(gen.x - 20, gen.y - 20, 40, 40);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px Prompt';
+                ctx.textAlign = 'center';
+                ctx.fillText(gen.repaired ? '⚙️ ซ่อมแล้ว' : `⚙️ ${Math.floor(gen.progress)}%`, gen.x, gen.y - 25);
+            });
+
+            // Draw Exit Gates
+            gameState.exitGates.forEach(gate => {
+                ctx.fillStyle = gate.open ? '#3b82f6' : '#52525b';
+                ctx.fillRect(gate.x - 25, gate.y - 15, 50, 30);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px Prompt';
+                ctx.textAlign = 'center';
+                ctx.fillText(gate.open ? '🚪 เปิดแล้ว' : '🚪 ประตูออก', gate.x, gate.y - 20);
+            });
+
+            // Draw Players
+            for (let id in gameState.players) {
+                const p = gameState.players[id];
+                const isMe = id === currentUser.uid;
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+
+                // Body shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.arc(0, 10, 14, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Player avatar circle
+                if (p.role === 'killer') {
+                    ctx.fillStyle = '#dc2626';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#991b1b';
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = p.state === 'downed' ? '#71717a' : (p.state === 'injured' ? '#ea580c' : '#2563eb');
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#1e3a8a';
+                    ctx.stroke();
+                }
+
+                // Name tag
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '11px Prompt';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.name + (isMe ? ' (คุณ)' : ''), 0, -22);
+
+                ctx.restore();
+            }
+
+            // Fog of War / Lighting for Survivors
+            if (localPlayer.role === 'survivor' && localPlayer.state !== 'escaped') {
+                const gradient = ctx.createRadialGradient(localPlayer.x, localPlayer.y, 40, localPlayer.x, localPlayer.y, 180);
+                gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                gradient.addColorStop(1, 'rgba(5, 3, 5, 0.88)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function gameLoop(timestamp) {
+            updateGameLogic(timestamp);
+            renderGame();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+    </script>
+</body>
+</html>
